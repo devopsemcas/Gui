@@ -1,7 +1,6 @@
 import pandas as pd
 import pickle
 import streamlit as st
-from gensim import corpora, models, similarities
 from surprise import Dataset, Reader, SVD
 
 # Load dữ liệu
@@ -20,22 +19,33 @@ sanpham_df = sanpham_df[['ma_san_pham', 'content']]
 reader = Reader(rating_scale=(1, 5))
 data = Dataset.load_from_df(danhgia_df[['ma_khach_hang', 'ma_san_pham', 'so_sao']], reader)
 
-# Xử lý dữ liệu với Gensim
-sanpham_df['tokens'] = sanpham_df['content'].apply(lambda x: x.split())
+# # Tạo từ điển và ma trận TF-IDF
+# dictionary = corpora.Dictionary(sanpham_df['tokens'])
+# corpus = [dictionary.doc2bow(text) for text in sanpham_df['tokens']]
+# tfidf_model = models.TfidfModel(corpus)
+# index = similarities.MatrixSimilarity(tfidf_model[corpus])
 
-# Tạo từ điển và ma trận TF-IDF
-dictionary = corpora.Dictionary(sanpham_df['tokens'])
-corpus = [dictionary.doc2bow(text) for text in sanpham_df['tokens']]
-tfidf_model = models.TfidfModel(corpus)
-index = similarities.MatrixSimilarity(tfidf_model[corpus])
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Lưu mô hình Gensim
-with open('gensim_dictionary.pkl', 'wb') as f:
-    pickle.dump(dictionary, f)
-with open('gensim_tfidf.pkl', 'wb') as f:
-    pickle.dump(tfidf_model, f)
-with open('gensim_index.pkl', 'wb') as f:
-    pickle.dump(index, f)
+# Tạo TF-IDF và ma trận cosine
+tfidf_vectorizer = TfidfVectorizer(max_features=5000)
+tfidf_matrix = tfidf_vectorizer.fit_transform(sanpham_df['content'])
+cosine_sim = cosine_similarity(tfidf_matrix)
+
+# Lưu TF-IDF và ma trận cosine
+with open('tfidf_vectorizer.pkl', 'wb') as f:
+    pickle.dump(tfidf_vectorizer, f)
+
+with open('cosine_sim.pkl', 'wb') as f:
+    pickle.dump(cosine_sim, f)
+
+# Tải TF-IDF vectorizer và ma trận cosine
+with open('tfidf_vectorizer.pkl', 'rb') as f:
+    tfidf_vectorizer = pickle.load(f)
+
+with open('cosine_sim.pkl', 'rb') as f:
+    cosine_sim = pickle.load(f)
 
 # Huấn luyện mô hình Collaborative Filtering với SVD
 algorithm = SVD()
@@ -47,33 +57,24 @@ with open('cf_model.pkl', 'wb') as f:
     pickle.dump(algorithm, f)
 
 # Tải mô hình
-with open('gensim_dictionary.pkl', 'rb') as f:
-    dictionary = pickle.load(f)
-with open('gensim_tfidf.pkl', 'rb') as f:
-    tfidf_model = pickle.load(f)
-with open('gensim_index.pkl', 'rb') as f:
-    index = pickle.load(f)
 with open('cf_model.pkl', 'rb') as f:
     algorithm = pickle.load(f)
 
-# Hàm gợi ý Content-Based với Gensim
-def recommend_content_gensim(product_id, top_n=5):
+def recommend_content(product_id, top_n=5):
     try:
-        # Lấy index của sản phẩm cần gợi ý
-        product_idx = sanpham_df[sanpham_df['ma_san_pham'] == product_id].index[0]
-        query_bow = dictionary.doc2bow(sanpham_df.iloc[product_idx]['tokens'])
-        sims = index[tfidf_model[query_bow]]
-        sims = sorted(list(enumerate(sims)), key=lambda x: -x[1])[1:top_n+1]
+        # Lấy index của sản phẩm
+        idx = sanpham_df.index[sanpham_df['ma_san_pham'] == product_id].tolist()[0]
 
-        # Lấy sản phẩm tương tự
-        recommendations = pd.DataFrame([{
-            'ma_san_pham': sanpham_df.iloc[i]['ma_san_pham'],
-            'content': sanpham_df.iloc[i]['content'],
-            'similarity_score': sim_score
-        } for i, sim_score in sims])
-        return recommendations
+        # Lấy danh sách tương đồng
+        sim_scores = list(enumerate(cosine_sim[idx]))
+        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)[1:top_n+1]
+        product_indices = [i[0] for i in sim_scores]
+
+        # Trả về các sản phẩm gợi ý
+        return sanpham_df.iloc[product_indices][['ma_san_pham', 'content']]
     except IndexError:
-        return pd.DataFrame()
+        return pd.DataFrame({'ma_san_pham': [], 'content': []})
+
 
 # Hàm gợi ý Collaborative Filtering
 def recommend_cf(user_id, top_n=5):
@@ -88,12 +89,12 @@ def recommend_cf(user_id, top_n=5):
 
 # Giao diện Streamlit
 st.title("Hệ thống gợi ý sản phẩm")
-option = st.selectbox("Chọn loại gợi ý", ("Content-Based (Gensim)", "Collaborative Filtering (Surprise)"))
+option = st.selectbox("Chọn loại gợi ý", ("Content-Based", "Collaborative Filtering (Surprise)"))
 input_id = st.text_input("Nhập User ID (CF) hoặc Product ID (Content-Based):")
 
 if st.button("Gợi ý"):
-    if option == "Content-Based (Gensim)":
-        recommendations = recommend_content_gensim(product_id=int(input_id))
+    if option == "Content-Based":
+         recommendations = recommend_content(product_id=int(input_id))
     elif option == "Collaborative Filtering (Surprise)":
         recommendations = recommend_cf(user_id=int(input_id))
 
