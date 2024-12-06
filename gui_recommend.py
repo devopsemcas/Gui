@@ -1,7 +1,6 @@
 import pandas as pd
 import pickle
 import streamlit as st
-from gensim import corpora, models, similarities
 from surprise import Dataset, Reader, SVD
 
 # Load dữ liệu
