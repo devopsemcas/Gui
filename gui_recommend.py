@@ -1,6 +1,7 @@
 import pandas as pd
 import pickle
 import streamlit as st
+from sklearn.metrics.pairwise import cosine_similarity
 # Load dữ liệu
 danhgia_df = pd.read_csv('data/Danh_gia.csv')
 sanpham_df = pd.read_csv('data/San_pham.csv')
@@ -13,12 +14,12 @@ danhgia_df.dropna(inplace=True)
 sanpham_df['content'] = sanpham_df['ten_san_pham'] + " " + sanpham_df['mo_ta']
 sanpham_df = sanpham_df[['ma_san_pham', 'content']]
 
-# Chuẩn bị dữ liệu cho Collaborative Filtering
-reader = Reader(rating_scale=(1, 5))
-data = Dataset.load_from_df(danhgia_df[['ma_khach_hang', 'ma_san_pham', 'so_sao']], reader)
+# Ma trận user-item
+user_item_matrix = ratings.pivot(index='user_id', columns='item_id', values='sanpham_df').fillna(0)
+# Độ tương đồng giữa người dùng
+user_similarity = cosine_similarity(user_item_matrix)
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 # # Tạo TF-IDF và ma trận cosine
 # tfidf_vectorizer = TfidfVectorizer(max_features=5000)
@@ -67,17 +68,15 @@ def recommend_content(product_id, top_n=5):
     except IndexError:
         return pd.DataFrame({'ma_san_pham': [], 'content': []})
 
+# Gợi ý sản phẩm
+def recommend_items(user_id, user_similarity, user_item_matrix, top_n=2):
+    user_idx = user_id - 1
+    similar_users = user_similarity[user_idx]
+    scores = similar_users @ user_item_matrix.fillna(0).values
+    item_ids = user_item_matrix.columns
+    recommendations = pd.DataFrame({'item_id': item_ids, 'score': scores}).sort_values(by='score', ascending=False)
+    return recommendations.head(top_n)
 
-# Hàm gợi ý Collaborative Filtering
-def recommend_cf(user_id, top_n=5):
-    try:
-        all_products = danhgia_df['ma_san_pham'].unique()
-        scores = [(product, algorithm.predict(user_id, product).est) for product in all_products]
-        scores = sorted(scores, key=lambda x: x[1], reverse=True)[:top_n]
-        product_ids = [s[0] for s in scores]
-        return sanpham_df[sanpham_df['ma_san_pham'].isin(product_ids)]
-    except:
-        return pd.DataFrame()
 
 # Giao diện Streamlit
 st.title("Hệ thống gợi ý sản phẩm")
@@ -88,7 +87,7 @@ if st.button("Gợi ý"):
     if option == "Content-Based":
          recommendations = recommend_content(product_id=int(input_id))
     elif option == "Collaborative Filtering (Surprise)":
-        recommendations = recommend_cf(user_id=int(input_id))
+        recommendations = recommend_items(1, user_similarity, user_item_matrix)
 
     if not recommendations.empty:
         st.write("Danh sách gợi ý:")
