@@ -15,7 +15,7 @@ sanpham_df['content'] = sanpham_df['ten_san_pham'] + " " + sanpham_df['mo_ta']
 sanpham_df = sanpham_df[['ma_san_pham', 'content']]
 
 # Ma trận user-item
-user_item_matrix = ratings.pivot(index='user_id', columns='item_id', values='sanpham_df').fillna(0)
+user_item_matrix = sanpham_df.pivot(index='user_id', columns='item_id', values='sanpham_df').fillna(0)
 # Độ tương đồng giữa người dùng
 user_similarity = cosine_similarity(user_item_matrix)
 
