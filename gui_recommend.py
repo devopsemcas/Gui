@@ -1,6 +1,7 @@
 import pandas as pd
 import pickle
 import streamlit as st
+from gensim import corpora, models, similarities
 from surprise import Dataset, Reader, SVD
 
 # Load dữ liệu
@@ -19,26 +20,20 @@ sanpham_df = sanpham_df[['ma_san_pham', 'content']]
 reader = Reader(rating_scale=(1, 5))
 data = Dataset.load_from_df(danhgia_df[['ma_khach_hang', 'ma_san_pham', 'so_sao']], reader)
 
-# # Tạo từ điển và ma trận TF-IDF
-# dictionary = corpora.Dictionary(sanpham_df['tokens'])
-# corpus = [dictionary.doc2bow(text) for text in sanpham_df['tokens']]
-# tfidf_model = models.TfidfModel(corpus)
-# index = similarities.MatrixSimilarity(tfidf_model[corpus])
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Tạo TF-IDF và ma trận cosine
-tfidf_vectorizer = TfidfVectorizer(max_features=5000)
-tfidf_matrix = tfidf_vectorizer.fit_transform(sanpham_df['content'])
-cosine_sim = cosine_similarity(tfidf_matrix)
+# # Tạo TF-IDF và ma trận cosine
+# tfidf_vectorizer = TfidfVectorizer(max_features=5000)
+# tfidf_matrix = tfidf_vectorizer.fit_transform(sanpham_df['content'])
+# cosine_sim = cosine_similarity(tfidf_matrix)
 
-# Lưu TF-IDF và ma trận cosine
-with open('tfidf_vectorizer.pkl', 'wb') as f:
-    pickle.dump(tfidf_vectorizer, f)
+# # Lưu TF-IDF và ma trận cosine
+# with open('tfidf_vectorizer.pkl', 'wb') as f:
+#     pickle.dump(tfidf_vectorizer, f)
 
-with open('cosine_sim.pkl', 'wb') as f:
-    pickle.dump(cosine_sim, f)
+# with open('cosine_sim.pkl', 'wb') as f:
+#     pickle.dump(cosine_sim, f)
 
 # Tải TF-IDF vectorizer và ma trận cosine
 with open('tfidf_vectorizer.pkl', 'rb') as f:
@@ -47,14 +42,14 @@ with open('tfidf_vectorizer.pkl', 'rb') as f:
 with open('cosine_sim.pkl', 'rb') as f:
     cosine_sim = pickle.load(f)
 
-# Huấn luyện mô hình Collaborative Filtering với SVD
-algorithm = SVD()
-trainset = data.build_full_trainset()
-algorithm.fit(trainset)
+# # Huấn luyện mô hình Collaborative Filtering với SVD
+# algorithm = SVD()
+# trainset = data.build_full_trainset()
+# algorithm.fit(trainset)
 
-# Lưu mô hình Surprise
-with open('cf_model.pkl', 'wb') as f:
-    pickle.dump(algorithm, f)
+# # Lưu mô hình Surprise
+# with open('cf_model.pkl', 'wb') as f:
+#     pickle.dump(algorithm, f)
 
 # Tải mô hình
 with open('cf_model.pkl', 'rb') as f:
