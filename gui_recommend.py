@@ -1,8 +1,6 @@
 import pandas as pd
 import pickle
 import streamlit as st
-from surprise import Dataset, Reader, SVD
-
 # Load dữ liệu
 danhgia_df = pd.read_csv('data/Danh_gia.csv')
 sanpham_df = pd.read_csv('data/San_pham.csv')
