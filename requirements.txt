@@ -6,4 +6,5 @@ seaborn
 scikit-learn
 surprise
 joblib
+Cython
 scikit-surprise
